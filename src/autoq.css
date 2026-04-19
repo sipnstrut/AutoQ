@@ -3,12 +3,45 @@
  *
  * Self-contained — no external dependencies.
  * Uses CSS custom properties for easy theming.
- * Default: dark theme. Add class "autoq-light" to .autoq-section for light mode.
+ * Default: warm/light theme (cream backgrounds, wine-red accent) so it
+ * blends with the Sip n Strut site. Add class "autoq-dark" to
+ * .autoq-section for the original dark mode.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Anybody:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
 .autoq-section {
+  --aq-bg-deep: #f4eedc;
+  --aq-bg-base: #fbf7ec;
+  --aq-bg-card: #ffffff;
+  --aq-bg-card-hover: #f4eedc;
+  --aq-bg-surface: #efe7cf;
+  --aq-border: #d9cfb5;
+  --aq-border-accent: #b4a689;
+  --aq-text: #201c14;
+  --aq-text-muted: #5a5040;
+  --aq-text-dim: #8a7e6a;
+  --aq-accent: #8b2c2c;
+  --aq-accent-dim: #6e2020;
+  --aq-accent-glow: rgba(139, 44, 44, 0.12);
+  --aq-accent-contrast: #fbf7ec;
+  --aq-win: #56894a;
+  --aq-loss: #a03030;
+  --aq-star: #c9962c;
+  --aq-radius: 10px;
+  --aq-radius-sm: 6px;
+
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  color: var(--aq-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  max-width: 1280px;
+  margin: 32px auto 0;
+  padding: 0 24px;
+}
+
+/* Dark variant — add class="autoq-dark" to bring back the original palette. */
+.autoq-section.autoq-dark {
   --aq-bg-deep: #08090d;
   --aq-bg-base: #0f1117;
   --aq-bg-card: #161922;
@@ -22,34 +55,10 @@
   --aq-accent: #f0b429;
   --aq-accent-dim: #b8860b;
   --aq-accent-glow: rgba(240, 180, 41, 0.15);
+  --aq-accent-contrast: #000000;
   --aq-win: #22c55e;
   --aq-loss: #ef4444;
   --aq-star: #f59e0b;
-  --aq-radius: 10px;
-  --aq-radius-sm: 6px;
-
-  font-family: 'DM Sans', -apple-system, sans-serif;
-  color: var(--aq-text);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  max-width: 1280px;
-  margin: 48px auto 0;
-  padding: 0 24px;
-}
-
-/* Light mode override */
-.autoq-section.autoq-light {
-  --aq-bg-deep: #f5f5f7;
-  --aq-bg-base: #ffffff;
-  --aq-bg-card: #f0f1f4;
-  --aq-bg-card-hover: #e8e9ed;
-  --aq-bg-surface: #eaebef;
-  --aq-border: #d1d3db;
-  --aq-border-accent: #b0b3c0;
-  --aq-text: #1a1d27;
-  --aq-text-muted: #5a5e71;
-  --aq-text-dim: #8a8e9f;
-  --aq-accent-glow: rgba(240, 180, 41, 0.2);
 }
 
 .autoq-title {
@@ -102,6 +111,7 @@
 
 .autoq-start-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px;
 }
@@ -151,14 +161,17 @@
 
 .autoq-btn-primary {
   background: var(--aq-accent);
-  color: #000;
+  color: var(--aq-accent-contrast);
   border-color: var(--aq-accent);
   font-weight: 700;
 }
-.autoq-btn-primary:hover { background: #e0a820; border-color: #e0a820; }
+.autoq-btn-primary:hover {
+  background: var(--aq-accent-dim);
+  border-color: var(--aq-accent-dim);
+}
 
 .autoq-btn-danger { color: var(--aq-loss); border-color: var(--aq-loss); background: transparent; }
-.autoq-btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+.autoq-btn-danger:hover { background: rgba(160, 48, 48, 0.08); }
 
 /* ── Hand info ─────────────────────────────────────────── */
 
@@ -167,11 +180,12 @@
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .autoq-hand-badge {
   background: var(--aq-accent);
-  color: #000;
+  color: var(--aq-accent-contrast);
   font-weight: 700;
   font-size: 0.78rem;
   padding: 4px 12px;
@@ -266,6 +280,7 @@
 
 .autoq-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
 }
@@ -308,7 +323,7 @@
 
 .autoq-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(42, 45, 58, 0.4);
+  border-bottom: 1px solid var(--aq-border);
 }
 
 .autoq-player-row { background: var(--aq-accent-glow); }
@@ -324,6 +339,7 @@
   border: 1px solid var(--aq-border);
   border-radius: var(--aq-radius);
   padding: 20px 24px;
+  overflow-x: auto;
 }
 
 .autoq-standings-title {
@@ -377,3 +393,57 @@
 
 .autoq-history-you { color: var(--aq-accent); }
 .autoq-history-bot { color: var(--aq-text-muted); }
+
+/* ── Mobile polish ─────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .autoq-section {
+    margin-top: 12px;
+    padding: 0 12px;
+  }
+
+  .autoq-title {
+    font-size: 1.35rem;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .autoq-start-panel {
+    padding: 18px 18px;
+  }
+
+  .autoq-start-controls {
+    gap: 10px;
+  }
+
+  .autoq-card {
+    min-width: 40px;
+    padding: 8px 10px 4px;
+  }
+
+  .autoq-card-letter {
+    font-size: 1.1rem;
+  }
+
+  .autoq-result-panel,
+  .autoq-standings {
+    padding: 14px 16px;
+  }
+
+  .autoq-table {
+    font-size: 0.78rem;
+  }
+
+  .autoq-table th,
+  .autoq-table td {
+    padding: 6px 8px;
+  }
+
+  .autoq-words-cell {
+    max-width: 140px;
+  }
+
+  .autoq-input {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
