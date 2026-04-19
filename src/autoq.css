@@ -1,0 +1,379 @@
+/*
+ * AutoQ standalone styles.
+ *
+ * Self-contained — no external dependencies.
+ * Uses CSS custom properties for easy theming.
+ * Default: dark theme. Add class "autoq-light" to .autoq-section for light mode.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
+
+.autoq-section {
+  --aq-bg-deep: #08090d;
+  --aq-bg-base: #0f1117;
+  --aq-bg-card: #161922;
+  --aq-bg-card-hover: #1c1f2e;
+  --aq-bg-surface: #1a1d27;
+  --aq-border: #2a2d3a;
+  --aq-border-accent: #3d4155;
+  --aq-text: #e8e9ed;
+  --aq-text-muted: #7a7e91;
+  --aq-text-dim: #4e5164;
+  --aq-accent: #f0b429;
+  --aq-accent-dim: #b8860b;
+  --aq-accent-glow: rgba(240, 180, 41, 0.15);
+  --aq-win: #22c55e;
+  --aq-loss: #ef4444;
+  --aq-star: #f59e0b;
+  --aq-radius: 10px;
+  --aq-radius-sm: 6px;
+
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  color: var(--aq-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  max-width: 1280px;
+  margin: 48px auto 0;
+  padding: 0 24px;
+}
+
+/* Light mode override */
+.autoq-section.autoq-light {
+  --aq-bg-deep: #f5f5f7;
+  --aq-bg-base: #ffffff;
+  --aq-bg-card: #f0f1f4;
+  --aq-bg-card-hover: #e8e9ed;
+  --aq-bg-surface: #eaebef;
+  --aq-border: #d1d3db;
+  --aq-border-accent: #b0b3c0;
+  --aq-text: #1a1d27;
+  --aq-text-muted: #5a5e71;
+  --aq-text-dim: #8a8e9f;
+  --aq-accent-glow: rgba(240, 180, 41, 0.2);
+}
+
+.autoq-title {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Two-column layout ─────────────────────────────────── */
+
+.autoq-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .autoq-layout { grid-template-columns: 1fr; }
+}
+
+.autoq-phase-title {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--aq-text);
+  margin-bottom: 12px;
+}
+
+/* ── Start panel ───────────────────────────────────────── */
+
+.autoq-start-panel {
+  background: var(--aq-bg-card);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius);
+  padding: 28px 32px;
+  max-width: 520px;
+}
+
+.autoq-description {
+  color: var(--aq-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.autoq-start-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.autoq-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--aq-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.autoq-select {
+  background: var(--aq-bg-base);
+  color: var(--aq-text);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-sm);
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.autoq-select:focus { outline: none; border-color: var(--aq-accent); }
+
+/* ── Buttons ───────────────────────────────────────────── */
+
+.autoq-btn {
+  background: var(--aq-bg-surface);
+  color: var(--aq-text);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-sm);
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.autoq-btn:hover { border-color: var(--aq-border-accent); background: var(--aq-bg-card-hover); }
+.autoq-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.autoq-btn-primary {
+  background: var(--aq-accent);
+  color: #000;
+  border-color: var(--aq-accent);
+  font-weight: 700;
+}
+.autoq-btn-primary:hover { background: #e0a820; border-color: #e0a820; }
+
+.autoq-btn-danger { color: var(--aq-loss); border-color: var(--aq-loss); background: transparent; }
+.autoq-btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* ── Hand info ─────────────────────────────────────────── */
+
+.autoq-hand-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.autoq-hand-badge {
+  background: var(--aq-accent);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.autoq-card-count {
+  color: var(--aq-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ── Dealt cards ───────────────────────────────────────── */
+
+.autoq-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.autoq-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--aq-bg-card);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-sm);
+  padding: 10px 14px 6px;
+  min-width: 48px;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.autoq-card:hover { border-color: var(--aq-accent); }
+
+.autoq-card-used { opacity: 0.3; border-color: transparent; }
+.autoq-card-used:hover { border-color: transparent; }
+
+.autoq-card-letter {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 800;
+  font-size: 1.3rem;
+  line-height: 1;
+  text-transform: lowercase;
+  color: var(--aq-text);
+}
+
+.autoq-card-value {
+  font-size: 0.7rem;
+  color: var(--aq-text-dim);
+  margin-top: 4px;
+}
+
+/* ── Word input ────────────────────────────────────────── */
+
+.autoq-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.autoq-input {
+  flex: 1 1 240px;
+  background: var(--aq-bg-base);
+  color: var(--aq-text);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-sm);
+  padding: 10px 14px;
+  font-family: 'Anybody', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.autoq-input::placeholder { color: var(--aq-text-dim); font-weight: 400; }
+.autoq-input:focus { outline: none; border-color: var(--aq-accent); }
+
+.autoq-error {
+  color: var(--aq-loss);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.autoq-hint {
+  color: var(--aq-text-dim);
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.autoq-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* ── Result panel ──────────────────────────────────────── */
+
+.autoq-result-panel {
+  background: var(--aq-bg-card);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+
+.autoq-star-summary {
+  color: var(--aq-text-muted);
+  font-size: 0.85rem;
+  margin-top: 12px;
+  text-align: left;
+}
+
+/* ── Tables ────────────────────────────────────────────── */
+
+.autoq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.autoq-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--aq-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--aq-border);
+}
+
+.autoq-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(42, 45, 58, 0.4);
+}
+
+.autoq-player-row { background: var(--aq-accent-glow); }
+.autoq-you { font-weight: 700; color: var(--aq-accent); }
+.autoq-final { font-weight: 700; }
+.autoq-rank { font-size: 1.1rem; width: 36px; }
+.autoq-words-cell { color: var(--aq-text-muted); font-size: 0.82rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Standings ─────────────────────────────────────────── */
+
+.autoq-standings {
+  background: var(--aq-bg-card);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius);
+  padding: 20px 24px;
+}
+
+.autoq-standings-title {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--aq-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+/* ── Hand history ──────────────────────────────────────── */
+
+.autoq-history { margin-top: 16px; }
+
+.autoq-history summary {
+  cursor: pointer;
+  color: var(--aq-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.autoq-history-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .autoq-history-grid { grid-template-columns: 1fr; }
+}
+
+.autoq-history-hand {
+  background: var(--aq-bg-surface);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.autoq-history-hand strong {
+  color: var(--aq-text);
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.autoq-history-you { color: var(--aq-accent); }
+.autoq-history-bot { color: var(--aq-text-muted); }
