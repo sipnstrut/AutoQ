@@ -87,7 +87,7 @@ export default function AutoQ({ scores, validateWords }) {
   // Card graying
   const dealtCards = game?.status === "playing" ? game.dealtHands[game.currentHand] : [];
   const mulligansForHand = game ? (game.mulligans[game.currentHand] || 0) : 0;
-  const maxCardsForHand = game ? Math.max(2, (game.currentHand + 3) - mulligansForHand) : 0;
+  const maxCardsForHand = game ? Math.max(2, game.currentHand - mulligansForHand) : 0;
   const usedIndices = useMemo(
     () => getUsedCardIndices(wordsInput, maxCardsForHand, dealtCards),
     [wordsInput, maxCardsForHand, dealtCards]
