@@ -18,7 +18,13 @@ import {
 } from "./autoq-engine";
 import botScoresData from "./bot-scores.json";
 
-export default function AutoQ({ scores, validateWords }) {
+/**
+ * @param {object} [props]
+ * @param {Array} [props.scores]
+ * @param {(input: string) => Promise<{valid: string[], invalid: {word: string}[]}>} [props.validateWords]
+ * @param {(game: any) => void} [props.onStateChange]
+ */
+export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
   const historicalScores = scores || botScoresData;
   const [game, setGame] = useState(null);
   const [opponentCount, setOpponentCount] = useState(3);
@@ -33,6 +39,10 @@ export default function AutoQ({ scores, validateWords }) {
       inputRef.current.focus();
     }
   }, [game?.currentHand, game?.status, showLastResult]);
+
+  useEffect(() => {
+    if (onStateChange) onStateChange(game);
+  }, [game, onStateChange]);
 
   const handleStart = useCallback(() => {
     setGame(createGame(opponentCount, historicalScores));
