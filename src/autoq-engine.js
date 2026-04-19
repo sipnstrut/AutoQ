@@ -408,12 +408,16 @@ export function createGame(opponentCount, historicalScores) {
 export function takeMulligan(game) {
   const hand = game.currentHand;
   const currentCount = game.mulligans[hand] || 0;
-  // Mulligans reduce max PLAYABLE cards by 1 each; deal stays hand + 3 so
-  // the 3-discard minimum holds. Floor playable at 2 (shortest word length).
+  // Each mulligan shaves one card off BOTH the deal and the max-play:
+  //   dealt      = hand + 3 - mulligans
+  //   maxPlay    = hand     - mulligans
+  //   minDiscard = 3                       (invariant)
+  // Floor maxPlay at 2 so shortest words remain possible.
   if (currentCount >= hand - 2) return game;
 
-  const newMulligans = { ...game.mulligans, [hand]: currentCount + 1 };
-  const dealt = dealForHand(1, hand + 3);
+  const newCount = currentCount + 1;
+  const newMulligans = { ...game.mulligans, [hand]: newCount };
+  const dealt = dealForHand(1, hand + 3 - newCount);
 
   return {
     ...game,
