@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * AutoQ — Standalone React component.
  *
@@ -22,7 +24,9 @@ import botScoresData from "./bot-scores.json";
  * @param {object} [props]
  * @param {Array} [props.scores]
  * @param {(input: string) => Promise<{valid: string[], invalid: {word: string}[]}>} [props.validateWords]
- * @param {(game: any) => void} [props.onStateChange]
+ * @param {(game: any) => void} [props.onStateChange] — fires whenever the
+ *   internal game state changes (start, mulligan, submit, finish, reset).
+ *   Passed the current game object, or null if no game is active.
  */
 export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
   const historicalScores = scores || botScoresData;
@@ -113,13 +117,13 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
           <div className="autoq-start-controls">
             <label className="autoq-label">
               Opponents
-              <select value={opponentCount} onChange={(e) => setOpponentCount(Number(e.target.value))} className="autoq-select">
+              <select value={opponentCount} onChange={(e) => setOpponentCount(Number(e.target.value))} className="autoq-select" data-tour="opponents">
                 {[0,1,2,3,4,5,6,7].map((n) => (
                   <option key={n} value={n}>{n === 0 ? "0 (Solo)" : n}</option>
                 ))}
               </select>
             </label>
-            <button className="autoq-btn autoq-btn-primary" onClick={handleStart}>Start Game</button>
+            <button className="autoq-btn autoq-btn-primary" onClick={handleStart} data-tour="start">Start Game</button>
           </div>
         </div>
       </section>
@@ -165,11 +169,11 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
     leftContent = (
       <div className="autoq-left">
         <div className="autoq-hand-info">
-          <span className="autoq-hand-badge">Hand {handIndex + 1} of {HANDS.length}</span>
-          <span className="autoq-card-count">{maxCards} cards{mulligans > 0 ? ` (${mulligans} mulligan${mulligans > 1 ? "s" : ""})` : ""}</span>
+          <span className="autoq-hand-badge" data-tour="hand-badge">Hand {handIndex + 1} of {HANDS.length}</span>
+          <span className="autoq-card-count" data-tour="card-count">{maxCards} cards{mulligans > 0 ? ` (${mulligans} mulligan${mulligans > 1 ? "s" : ""})` : ""}</span>
         </div>
 
-        <div className="autoq-cards">
+        <div className="autoq-cards" data-tour="cards">
           {dealtCards.map((card, i) => (
             <div key={`${card}-${i}`} className={`autoq-card${usedIndices.has(i) ? " autoq-card-used" : ""}`}>
               <span className="autoq-card-letter">{card.toLowerCase()}</span>
@@ -188,9 +192,10 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
             className="autoq-input"
             autoComplete="off"
             spellCheck={false}
+            data-tour="word-input"
           />
-          <button type="submit" className="autoq-btn autoq-btn-primary" disabled={submitting}>{submitting ? "Checking..." : "Submit"}</button>
-          <button type="button" className="autoq-btn" onClick={handleMulligan} disabled={!canMulligan} title="Redraw cards (lose 1 card slot)">Mulligan</button>
+          <button type="submit" className="autoq-btn autoq-btn-primary" disabled={submitting} data-tour="submit">{submitting ? "Checking..." : "Submit"}</button>
+          <button type="button" className="autoq-btn" onClick={handleMulligan} disabled={!canMulligan} title="Redraw cards (lose 1 card slot)" data-tour="mulligan">Mulligan</button>
           <button type="button" className="autoq-btn autoq-btn-danger" onClick={handleQuit}>Quit</button>
         </form>
 
