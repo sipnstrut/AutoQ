@@ -17,6 +17,18 @@ export const CARD_VALUES = {
 
 const DIGRAPHS = ["QU", "IN", "ER", "TH", "CL"];
 
+// Normalize user-typed input: any run of non-letter characters collapses to a
+// single space, then trim. Digits, punctuation, and symbols are stripped;
+// words are always space-separated afterwards.
+function cleanInput(input) {
+  return (input || "").replace(/[^a-zA-Z]+/g, " ").trim();
+}
+
+// Word-game rule: every submitted word must consume at least this many cards.
+// Digraph cards (QU, TH, CL, IN, ER) count as one card each, so "qu" alone is
+// rejected even though it fits in two card slots when split as Q+U.
+const MIN_CARDS_PER_WORD = 2;
+
 const CARD_FREQUENCIES = {
   A: 10, B: 2, C: 2, D: 4, E: 12, F: 2, G: 4, H: 2, I: 8, J: 2,
   K: 2, L: 4, M: 2, N: 6, O: 8, P: 2, Q: 2, R: 6, S: 4, T: 6,
@@ -100,12 +112,13 @@ function validateCardsAgainstDealt(usedCards, dealtCards) {
  * Parse words input and return scoring options filtered against the dealt hand.
  */
 export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
-  const cleaned = (input || "").replace(/[\s,+]+/g, " ").trim();
-  if (!cleaned) return { options: [], invalid: [] };
+  const cleaned = cleanInput(input);
+  if (!cleaned) return { options: [], invalid: [], tooShort: [] };
   const wordTokens = cleaned.split(" ").filter(Boolean);
-  if (!wordTokens.length) return { options: [], invalid: [] };
+  if (!wordTokens.length) return { options: [], invalid: [], tooShort: [] };
 
   const allInvalid = [];
+  const allTooShort = [];
   const perWord = wordTokens.map((token) => {
     const upper = token.toUpperCase().trim();
     if (!upper) return [{ cards: [], raw: token }];
@@ -118,12 +131,15 @@ export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
       allInvalid.push(...invalid);
       return [{ cards, raw: token }];
     }
-    const breakdowns = allBreakdowns(upper);
-    if (breakdowns.length === 0) { allInvalid.push(token); return [{ cards: [], raw: token }]; }
+    const rawBreakdowns = allBreakdowns(upper);
+    if (rawBreakdowns.length === 0) { allInvalid.push(token); return [{ cards: [], raw: token }]; }
+    const breakdowns = rawBreakdowns.filter((cards) => cards.length >= MIN_CARDS_PER_WORD);
+    if (breakdowns.length === 0) { allTooShort.push(token); return [{ cards: [], raw: token }]; }
     return breakdowns.map((cards) => ({ cards, raw: token }));
   });
 
-  if (allInvalid.length) return { options: [], invalid: allInvalid };
+  if (allInvalid.length) return { options: [], invalid: allInvalid, tooShort: allTooShort };
+  if (allTooShort.length) return { options: [], invalid: [], tooShort: allTooShort };
 
   const combos = cartesian(perWord);
   const rawOptions = [];
@@ -147,7 +163,7 @@ export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
   }
 
   const options = [...byScore.values()].sort((a, b) => b.score - a.score);
-  return { options, invalid: [] };
+  return { options, invalid: [], tooShort: [] };
 }
 
 /**
@@ -155,7 +171,7 @@ export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
  * Used for graying out cards in real time as the player types.
  */
 export function getUsedCardIndices(input, handSize, dealtCards) {
-  const cleaned = (input || "").replace(/[\s,+]+/g, " ").trim();
+  const cleaned = cleanInput(input);
   if (!cleaned) return new Set();
   const wordTokens = cleaned.split(" ").filter(Boolean);
   if (!wordTokens.length) return new Set();
@@ -170,7 +186,7 @@ export function getUsedCardIndices(input, handSize, dealtCards) {
       }
       return [cards];
     }
-    const bk = allBreakdowns(upper);
+    const bk = allBreakdowns(upper).filter((cards) => cards.length >= MIN_CARDS_PER_WORD);
     return bk.length > 0 ? bk : [[]];
   });
 
@@ -201,12 +217,13 @@ export function getUsedCardIndices(input, handSize, dealtCards) {
  * Score a words input without dealt-card filtering (for card-count check).
  */
 export function getScoreOptions(input, handSize) {
-  const cleaned = (input || "").replace(/[\s,+]+/g, " ").trim();
-  if (!cleaned) return { options: [], invalid: [] };
+  const cleaned = cleanInput(input);
+  if (!cleaned) return { options: [], invalid: [], tooShort: [] };
   const wordTokens = cleaned.split(" ").filter(Boolean);
-  if (!wordTokens.length) return { options: [], invalid: [] };
+  if (!wordTokens.length) return { options: [], invalid: [], tooShort: [] };
 
   const allInvalid = [];
+  const allTooShort = [];
   const perWord = wordTokens.map((token) => {
     const upper = token.toUpperCase().trim();
     if (!upper) return [{ cards: [], raw: token }];
@@ -219,12 +236,15 @@ export function getScoreOptions(input, handSize) {
       allInvalid.push(...invalid);
       return [{ cards, raw: token }];
     }
-    const breakdowns = allBreakdowns(upper);
-    if (breakdowns.length === 0) { allInvalid.push(token); return [{ cards: [], raw: token }]; }
+    const rawBreakdowns = allBreakdowns(upper);
+    if (rawBreakdowns.length === 0) { allInvalid.push(token); return [{ cards: [], raw: token }]; }
+    const breakdowns = rawBreakdowns.filter((cards) => cards.length >= MIN_CARDS_PER_WORD);
+    if (breakdowns.length === 0) { allTooShort.push(token); return [{ cards: [], raw: token }]; }
     return breakdowns.map((cards) => ({ cards, raw: token }));
   });
 
-  if (allInvalid.length) return { options: [], invalid: allInvalid };
+  if (allInvalid.length) return { options: [], invalid: allInvalid, tooShort: allTooShort };
+  if (allTooShort.length) return { options: [], invalid: [], tooShort: allTooShort };
   const combos = cartesian(perWord);
   const rawOptions = [];
   for (const combo of combos) {
@@ -238,7 +258,7 @@ export function getScoreOptions(input, handSize) {
     if (!existing) byScore.set(opt.score, opt);
     else if (Math.abs(handSize - opt.cards) < Math.abs(handSize - existing.cards)) byScore.set(opt.score, opt);
   }
-  return { options: [...byScore.values()].sort((a, b) => b.score - a.score), invalid: [] };
+  return { options: [...byScore.values()].sort((a, b) => b.score - a.score), invalid: [], tooShort: [] };
 }
 
 // ── Bot Logic ──────────────────────────────────────────
@@ -258,7 +278,10 @@ function tryConsume(usedCards, pool) {
 }
 
 function selectBotPlays(botCount, hand, remainingPool, allScores) {
-  const handScores = allScores.filter((s) => s.hand === hand);
+  // seed_valid === false means the entry contains a word rejected by the new
+  // dictionary rules (slang, proper noun, etc.) — exclude from seeding.
+  // null/undefined (unannotated) and true both remain eligible.
+  const handScores = allScores.filter((s) => s.hand === hand && s.seed_valid !== false);
   const shuffled = handScores.sort(() => Math.random() - 0.5);
   const plays = [];
   const usedWords = new Set();
@@ -442,9 +465,10 @@ export function submitHand(game, wordsInput) {
     return applyScore(game, hand, "", { score: 0, cards: 0, breakdown: "" });
   }
 
-  const { options, invalid } = filterOptionsAgainstDealt(wordsInput, maxCards, dealtCards);
+  const { options, invalid, tooShort } = filterOptionsAgainstDealt(wordsInput, maxCards, dealtCards);
 
   if (invalid.length) return { game, error: `Invalid cards: ${invalid.join(", ")}` };
+  if (tooShort.length) return { game, error: `Words must be at least 2 cards: ${tooShort.join(", ")}` };
 
   if (options.length === 0) {
     const unconstrained = getScoreOptions(wordsInput, maxCards);
@@ -457,7 +481,7 @@ export function submitHand(game, wordsInput) {
 }
 
 function applyScore(game, hand, wordsInput, chosen) {
-  const wordTokens = wordsInput ? wordsInput.replace(/[\s,+]+/g, " ").trim().split(" ").filter(Boolean) : [];
+  const wordTokens = cleanInput(wordsInput).split(" ").filter(Boolean);
   const wordCount = wordTokens.length;
   let longestWordLetters = 0;
   for (const w of wordTokens) {
