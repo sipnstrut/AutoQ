@@ -2,7 +2,7 @@
 
 ## What Is This
 
-A solo word game based on Quiddler. The player is dealt cards (letters with point values) and forms words to score points across 8 hands (3-10 cards each). Bot opponents play historical hands from real games.
+A solo word game based on Quiddler. The player forms words from dealt cards (letters with point values) across 8 hands numbered 3 through 10. Each hand N deals `N+3` cards but caps playable cards at `N` — the player must always discard at least 3 cards. Bot opponents play historical hands from real games.
 
 ## Files
 
@@ -169,10 +169,10 @@ Options:
 
 ### Updating Bot Data
 
-To refresh `bot-scores.json` with newer game data, export from the QBIM scores API:
+To refresh `bot-scores.json` with newer game data, export from the QBIM scores API (CORS-open, read-only, no auth required):
 
 ```bash
-curl -s "https://YOUR_API/scores" | node -e "
+curl -s "https://jqoyoafk29.execute-api.us-east-1.amazonaws.com/prod/stats/scores" | node -e "
   const s = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   const pool = s.filter(x => x.words && x.breakdown && x.hand);
   const slim = pool.map(x => ({

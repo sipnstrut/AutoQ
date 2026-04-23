@@ -97,9 +97,13 @@ function cartesian(arrays) {
   );
 }
 
-function validateCardsAgainstDealt(usedCards, dealtCards) {
+function validateCardsAgainstDealt(usedCards, dealtCards, excludedIndices) {
   const available = new Map();
-  for (const c of dealtCards) available.set(c, (available.get(c) || 0) + 1);
+  for (let i = 0; i < dealtCards.length; i++) {
+    if (excludedIndices && excludedIndices.has(i)) continue;
+    const c = dealtCards[i];
+    available.set(c, (available.get(c) || 0) + 1);
+  }
   for (const c of usedCards) {
     const count = available.get(c) || 0;
     if (count <= 0) return false;
@@ -110,8 +114,10 @@ function validateCardsAgainstDealt(usedCards, dealtCards) {
 
 /**
  * Parse words input and return scoring options filtered against the dealt hand.
+ * `excludedIndices` (optional Set) blocks specific dealt-card slots from being
+ * matched — used for cards the player has marked as discards.
  */
-export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
+export function filterOptionsAgainstDealt(input, handSize, dealtCards, excludedIndices) {
   const cleaned = cleanInput(input);
   if (!cleaned) return { options: [], invalid: [], tooShort: [] };
   const wordTokens = cleaned.split(" ").filter(Boolean);
@@ -146,7 +152,7 @@ export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
   for (const combo of combos) {
     const allCards = combo.flatMap((w) => w.cards);
     if (allCards.length > handSize) continue;
-    if (!validateCardsAgainstDealt(allCards, dealtCards)) continue;
+    if (!validateCardsAgainstDealt(allCards, dealtCards, excludedIndices)) continue;
     const totalScore = scoreCards(allCards);
     const breakdown = combo.map((w) => w.cards.join("-")).join("  ");
     rawOptions.push({ score: totalScore, cards: allCards.length, breakdown });
@@ -167,14 +173,21 @@ export function filterOptionsAgainstDealt(input, handSize, dealtCards) {
 }
 
 /**
- * Given typed input and dealt cards, return a Set of dealt-card indices that are "used".
- * Used for graying out cards in real time as the player types.
+ * Match typed input to specific dealt-card indices, preserving the order the
+ * letters appear in the input. Returns:
+ *   - []    — input was empty / whitespace only
+ *   - array — ordered dealt-card indices consumed by the input (best-scoring
+ *             combo wins when multiple breakdowns are possible)
+ *   - null  — the input contains letters that can't be matched against the
+ *             available (non-discarded) dealt cards
+ *
+ * `excludedIndices` (optional Set) blocks discarded slots from being matched.
  */
-export function getUsedCardIndices(input, handSize, dealtCards) {
+export function matchInputIndices(input, handSize, dealtCards, excludedIndices) {
   const cleaned = cleanInput(input);
-  if (!cleaned) return new Set();
+  if (!cleaned) return [];
   const wordTokens = cleaned.split(" ").filter(Boolean);
-  if (!wordTokens.length) return new Set();
+  if (!wordTokens.length) return [];
 
   const perWord = wordTokens.map((token) => {
     const upper = token.toUpperCase().trim();
@@ -190,27 +203,104 @@ export function getUsedCardIndices(input, handSize, dealtCards) {
     return bk.length > 0 ? bk : [[]];
   });
 
-  // Try each combination, keep the highest-scoring valid one (matches submit behavior)
   const combos = cartesian(perWord);
-  let bestUsed = null;
+  let bestOrdered = null;
   let bestScore = -1;
   for (const combo of combos) {
     const allCards = combo.flat();
     if (allCards.length > handSize) continue;
 
-    const used = new Set();
+    const usedSet = new Set();
+    const ordered = [];
     let valid = true;
     for (const needed of allCards) {
-      const pos = dealtCards.findIndex((c, i) => c === needed && !used.has(i));
+      const pos = dealtCards.findIndex((c, i) =>
+        c === needed && !usedSet.has(i) && !(excludedIndices && excludedIndices.has(i))
+      );
       if (pos === -1) { valid = false; break; }
-      used.add(pos);
+      usedSet.add(pos);
+      ordered.push(pos);
     }
     if (valid) {
       const score = allCards.reduce((sum, c) => sum + (CARD_VALUES[c] || 0), 0);
-      if (score > bestScore) { bestScore = score; bestUsed = used; }
+      if (score > bestScore) { bestScore = score; bestOrdered = ordered; }
     }
   }
-  return bestUsed || new Set();
+  return bestOrdered; // null = no valid match
+}
+
+/**
+ * Given typed input and dealt cards, return a Set of dealt-card indices that are "used".
+ * Wrapper over `matchInputIndices` that preserves the older Set-returning shape.
+ */
+export function getUsedCardIndices(input, handSize, dealtCards, excludedIndices) {
+  const result = matchInputIndices(input, handSize, dealtCards, excludedIndices);
+  return new Set(result || []);
+}
+
+// Find dealt-card indices for a single in-progress word (any length ≥ 1, since
+// the player may still be workshopping). Returns the highest-scoring breakdown
+// that fits, or null if any letter can't be satisfied from the remaining cards.
+function matchSingleWordGreedy(word, dealtCards, alreadyUsed, excludedIndices) {
+  const upper = word.toUpperCase();
+  const breakdowns = allBreakdowns(upper);
+  if (breakdowns.length === 0) return null;
+  let best = null;
+  let bestScore = -1;
+  for (const cards of breakdowns) {
+    const localUsed = new Set();
+    const indices = [];
+    let valid = true;
+    for (const c of cards) {
+      const pos = dealtCards.findIndex((dc, i) =>
+        dc === c &&
+        !alreadyUsed.has(i) &&
+        !localUsed.has(i) &&
+        !(excludedIndices && excludedIndices.has(i))
+      );
+      if (pos === -1) { valid = false; break; }
+      localUsed.add(pos);
+      indices.push(pos);
+    }
+    if (valid) {
+      const score = indices.reduce((s, i) => s + (CARD_VALUES[dealtCards[i]] || 0), 0);
+      if (score > bestScore) { bestScore = score; best = indices; }
+    }
+  }
+  return best;
+}
+
+/**
+ * Parse staging input into per-word groups of dealt-card indices.
+ *
+ * Unlike `matchInputIndices`, this is permissive: single-character words like
+ * `"d"` are fine (the player is still building word 2), and trailing spaces
+ * produce an empty trailing group as a placeholder for the next word.
+ *
+ * Returns:
+ *   - []          — empty input
+ *   - [[i,…], …]  — one group per space-separated word token, in order
+ *   - null        — some letter can't be matched against available cards, or
+ *                   total card count exceeds `handSize`
+ */
+export function matchStagedWordGroups(input, handSize, dealtCards, excludedIndices) {
+  const sanitized = (input || "").replace(/[^a-zA-Z ]/g, "").replace(/ {2,}/g, " ").replace(/^ +/, "");
+  if (!sanitized) return [];
+  const tokens = sanitized.split(" ");
+
+  const used = new Set();
+  const groups = [];
+  for (const token of tokens) {
+    if (!token) { groups.push([]); continue; }
+    const matched = matchSingleWordGreedy(token, dealtCards, used, excludedIndices);
+    if (matched === null) return null;
+    for (const i of matched) used.add(i);
+    groups.push(matched);
+  }
+  let total = 0;
+  for (const g of groups) total += g.length;
+  if (total > handSize) return null;
+  return groups;
 }
 
 /**
@@ -376,8 +466,17 @@ export function createGame(opponentCount, historicalScores) {
   const shuffledNames = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   const botNames = shuffledNames.slice(0, opponentCount);
 
-  // Filter to scores that have words and breakdowns (for bot play selection)
-  const withWords = historicalScores.filter((s) => s.words && s.breakdown);
+  // Filter to scores that have words and breakdowns (for bot play selection).
+  // Historical data sometimes uses "+" as a word separator in `words` and "++"
+  // in `breakdown`. Normalize both to the canonical forms (space / double space)
+  // so they never surface in the UI and the breakdown parser works right.
+  const withWords = historicalScores
+    .filter((s) => s.words && s.breakdown)
+    .map((s) => ({
+      ...s,
+      words: String(s.words).replace(/\+/g, " ").replace(/\s+/g, " ").trim(),
+      breakdown: String(s.breakdown).replace(/\++/g, "  ").replace(/ {3,}/g, "  ").trim(),
+    }));
 
   // The pool skews high because zero-score hands have no words recorded.
   // Inject synthetic zero-score entries per hand to match the real zero rate.
@@ -419,38 +518,120 @@ export function createGame(opponentCount, historicalScores) {
     botPlays,
     currentHand: HANDS[0],
     mulligans: {},
+    mulliganDiscards: {},
+    discards: {},
     handResults: [],
     playerTotal: { raw: 0, stars: 0 },
     botTotals: botNames.map(() => ({ raw: 0, stars: 0 })),
   };
 }
 
-/**
- * Take a mulligan — redeal cards for the current hand (losing 1 card slot).
- */
-export function takeMulligan(game) {
+// Build the redeal pool for a mulligan: the 118-card deck minus cards already
+// out of circulation for the current hand — the player's current (about-to-be-
+// discarded) hand, previous mulligan discards for this hand, and all cards
+// the bots played for this hand.
+function mulliganPool(game) {
+  const pool = buildPool(QUIDDLER_DECK);
   const hand = game.currentHand;
+  if (hand == null) return pool;
+  const toRemove = [
+    ...(game.dealtHands[hand] || []),
+    ...(game.mulliganDiscards?.[hand] || []),
+  ];
+  for (const bp of (game.botPlays[hand] || [])) {
+    const botCards = (bp.breakdown || "").split(/\s+/).flatMap((w) =>
+      w.split("-").filter(Boolean).map((c) => c.toUpperCase())
+    );
+    toRemove.push(...botCards);
+  }
+  for (const c of toRemove) {
+    const n = pool.get(c) || 0;
+    if (n > 0) pool.set(c, n - 1);
+  }
+  return pool;
+}
+
+/**
+ * Whether a mulligan is currently possible for the active hand.
+ * Returns false if the game isn't playing, the max mulligan count for this
+ * hand has been reached, or the remaining pool has fewer cards than the
+ * next redeal would require.
+ */
+export function canMulligan(game) {
+  if (!game || game.status !== "playing") return false;
+  const hand = game.currentHand;
+  if (hand == null) return false;
   const currentCount = game.mulligans[hand] || 0;
   // Each mulligan shaves one card off BOTH the deal and the max-play:
   //   dealt      = hand + 3 - mulligans
   //   maxPlay    = hand     - mulligans
   //   minDiscard = 3                       (invariant)
   // Floor maxPlay at 2 so shortest words remain possible.
-  if (currentCount >= hand - 2) return game;
+  if (currentCount >= hand - 2) return false;
 
-  const newCount = currentCount + 1;
-  const newMulligans = { ...game.mulligans, [hand]: newCount };
-  const dealt = dealForHand(1, hand + 3 - newCount);
+  const newHandSize = hand + 3 - (currentCount + 1);
+  let available = 0;
+  for (const count of mulliganPool(game).values()) available += count;
+  return available >= newHandSize;
+}
+
+/**
+ * Take a mulligan — redeal cards for the current hand (losing 1 card slot).
+ * Refuses (returns the game unchanged) whenever `canMulligan(game)` is false.
+ */
+export function takeMulligan(game) {
+  if (!canMulligan(game)) return game;
+
+  const hand = game.currentHand;
+  const newCount = (game.mulligans[hand] || 0) + 1;
+  const newHandSize = hand + 3 - newCount;
+
+  const available = [];
+  for (const [card, count] of mulliganPool(game)) {
+    for (let i = 0; i < count; i++) available.push(card);
+  }
+  shuffleDeck(available);
+  const redealt = available.slice(0, newHandSize);
 
   return {
     ...game,
-    mulligans: newMulligans,
-    dealtHands: { ...game.dealtHands, [hand]: dealt[0] },
+    mulligans: { ...game.mulligans, [hand]: newCount },
+    dealtHands: { ...game.dealtHands, [hand]: redealt },
+    mulliganDiscards: {
+      ...(game.mulliganDiscards || {}),
+      [hand]: [
+        ...(game.mulliganDiscards?.[hand] || []),
+        ...(game.dealtHands[hand] || []),
+      ],
+    },
+    // Redeal invalidates any card indices the player had marked for this hand.
+    discards: { ...(game.discards || {}), [hand]: [] },
+  };
+}
+
+/**
+ * Toggle the "discarded" state of a dealt-card slot for the current hand.
+ * Red-marked cards are excluded from word-matching and will be recorded as
+ * discards on submit.
+ */
+export function toggleDiscard(game, cardIndex) {
+  if (!game || game.status !== "playing") return game;
+  const hand = game.currentHand;
+  if (hand == null) return game;
+  const current = game.discards?.[hand] || [];
+  const at = current.indexOf(cardIndex);
+  const next = at === -1 ? [...current, cardIndex] : current.filter((i) => i !== cardIndex);
+  return {
+    ...game,
+    discards: { ...(game.discards || {}), [hand]: next },
   };
 }
 
 /**
  * Submit a score for the current hand. Returns { game, error }.
+ * Cards the player explicitly marked as discards (via toggleDiscard) are
+ * excluded from word-matching, and any remaining non-played cards are
+ * recorded as discards in the hand result as well.
  */
 export function submitHand(game, wordsInput) {
   const hand = game.currentHand;
@@ -459,13 +640,14 @@ export function submitHand(game, wordsInput) {
   // `hand` guarantees the 3-discard minimum. Mulligans trim further.
   const maxCards = Math.max(2, hand - mulligans);
   const dealtCards = game.dealtHands[hand];
+  const excludedIndices = new Set(game.discards?.[hand] || []);
 
   // Empty submission = 0 points
   if (!wordsInput.trim()) {
-    return applyScore(game, hand, "", { score: 0, cards: 0, breakdown: "" });
+    return applyScore(game, hand, "", { score: 0, cards: 0, breakdown: "" }, excludedIndices);
   }
 
-  const { options, invalid, tooShort } = filterOptionsAgainstDealt(wordsInput, maxCards, dealtCards);
+  const { options, invalid, tooShort } = filterOptionsAgainstDealt(wordsInput, maxCards, dealtCards, excludedIndices);
 
   if (invalid.length) return { game, error: `Invalid cards: ${invalid.join(", ")}` };
   if (tooShort.length) return { game, error: `Words must be at least 2 cards: ${tooShort.join(", ")}` };
@@ -477,10 +659,10 @@ export function submitHand(game, wordsInput) {
   }
 
   // Auto-pick highest score
-  return applyScore(game, hand, wordsInput, options[0]);
+  return applyScore(game, hand, wordsInput, options[0], excludedIndices);
 }
 
-function applyScore(game, hand, wordsInput, chosen) {
+function applyScore(game, hand, wordsInput, chosen, excludedIndices) {
   const wordTokens = cleanInput(wordsInput).split(" ").filter(Boolean);
   const wordCount = wordTokens.length;
   let longestWordLetters = 0;
@@ -500,6 +682,13 @@ function applyScore(game, hand, wordsInput, chosen) {
     stars: starResult.botStars[i] || 0,
   }));
 
+  // Every dealt card not in the played breakdown (including explicit red
+  // discards) goes into the hand's discard record.
+  const dealtCards = game.dealtHands[hand];
+  const maxCards = Math.max(2, hand - (game.mulligans[hand] || 0));
+  const usedIndices = getUsedCardIndices(wordsInput, maxCards, dealtCards, excludedIndices);
+  const discards = dealtCards.filter((_, i) => !usedIndices.has(i));
+
   const handResult = {
     hand,
     words: wordsInput,
@@ -508,6 +697,7 @@ function applyScore(game, hand, wordsInput, chosen) {
     stars: starResult.playerStars,
     starSummary: starResult.summary,
     botScores: botScoresWithStars,
+    discards,
   };
 
   const newPlayerTotal = {

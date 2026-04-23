@@ -28,6 +28,9 @@
   --aq-win: #56894a;
   --aq-loss: #a03030;
   --aq-star: #c9962c;
+  --aq-card-select: #2563eb;
+  --aq-card-select-bg: rgba(37, 99, 235, 0.10);
+  --aq-card-discard-bg: rgba(160, 48, 48, 0.08);
   --aq-radius: 10px;
   --aq-radius-sm: 6px;
 
@@ -59,6 +62,9 @@
   --aq-win: #22c55e;
   --aq-loss: #ef4444;
   --aq-star: #f59e0b;
+  --aq-card-select: #60a5fa;
+  --aq-card-select-bg: rgba(96, 165, 250, 0.14);
+  --aq-card-discard-bg: rgba(239, 68, 68, 0.12);
 }
 
 .autoq-title {
@@ -75,10 +81,12 @@
 
 .autoq-layout {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
   align-items: start;
 }
+
+.autoq-right { position: relative; }
 
 @media (max-width: 900px) {
   .autoq-layout { grid-template-columns: 1fr; }
@@ -201,44 +209,336 @@
 
 /* ── Dealt cards ───────────────────────────────────────── */
 
-.autoq-cards {
+.autoq-staged-row,
+.autoq-hand-row,
+.autoq-discard-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  align-items: center;
+  min-height: 90px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--aq-bg-surface);
+  border: 1px dashed var(--aq-border-accent);
+  border-radius: var(--aq-radius);
+  position: relative;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.autoq-staged-row {
+  /* Vertical stack: each word group owns its own full-width row, the +
+     group sits at the bottom. No horizontal wrapping, so two 2-letter
+     words can't accidentally end up on one line. The outer border/bg is
+     dropped now that each word row renders its own scope. */
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.autoq-staged-row.autoq-drop-over {
+  background: transparent;
+  border-style: none;
+}
+
+/* Per-word indicator that sits at the start of each word's row. Now a
+   decent-sized click target: a filled circle when the word isn't selected,
+   and an arrow pointing right (at the word) when it is. The visual is
+   drawn in a pseudo-element so the circle <-> arrow swap is just a
+   clip-path change, and the button itself keeps a stable hit box. */
+.autoq-word-divider {
+  flex: 0 0 auto;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.autoq-word-divider::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--word-color, var(--aq-border-accent));
+  border-radius: 50%;
+  opacity: 0.55;
+  transition: opacity 0.12s, clip-path 0.18s ease, border-radius 0.18s ease, background 0.12s;
+}
+.autoq-word-divider:hover::before { opacity: 0.9; }
+.autoq-word-divider-active::before {
+  opacity: 1;
+  border-radius: 0;
+  /* Right-pointing arrow: rectangular shaft on the left half + triangle
+     head on the right half, all clipped out of the ::before box. */
+  clip-path: polygon(0% 30%, 50% 30%, 50% 0%, 100% 50%, 50% 100%, 50% 70%, 0% 70%);
+}
+
+/* Neutral bar — paired visually with the + button. No word association, so
+   no color, no interactivity. Present for symmetry with the word dots. */
+.autoq-word-divider-neutral {
+  cursor: default;
+  pointer-events: none;
+}
+.autoq-word-divider-neutral::before {
+  opacity: 0.4;
+}
+
+/* Active word — rely on the divider alone as the indicator. The wrapper
+   keeps its hover bg so it still feels selectable but doesn't glow. */
+.autoq-staged-word-active {}
+
+/* Bar + word pair: a single flex item in the staged row so they stay on
+   the same line when the row wraps. Internal gap is much tighter than the
+   row's 16px so the bar reads as firmly paired with its own word while
+   the previous word keeps its breathing room. */
+.autoq-word-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Word group inside the staged row — cards inside the same word overlap a
+   hair horizontally, but different word groups keep the row gap so the
+   break is visually clear. The wrapper itself is a click target for
+   activating the word (cards inside fall through to their own handlers). */
+.autoq-staged-word {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s;
+  /* Fill the remaining row width beside the bar so the whole row reads as
+     the word's drop zone — not just the area under its cards. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.autoq-staged-word:hover {
+  background: var(--aq-bg-card-hover);
+}
+.autoq-staged-word.autoq-staged-word-drop-target {
+  background: var(--word-color-bg, var(--aq-bg-card-hover));
+  box-shadow: 0 0 0 2px var(--word-color, var(--aq-accent));
+}
+.autoq-staged-word .autoq-card + .autoq-card {
+  margin-left: -8px;
+}
+
+/* "+" button that opens a new word. Drop a card onto it or click. Lives on
+   its own row at the bottom of the staged stack; square so width = height. */
+.autoq-new-word-bar {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--aq-text-muted);
+  border: none;
+  border-radius: 8px;
+  font-family: 'Anybody', sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+}
+.autoq-new-word-bar:hover,
+.autoq-new-word-bar-over {
+  background: var(--aq-card-select-bg, rgba(37, 99, 235, 0.10));
+  color: var(--aq-card-select, #2563eb);
+}
+.autoq-new-word-bar-over { transform: scale(1.15); }
+
+/* Play area: staged word box on the left, narrow discard column on the right. */
+.autoq-play-area {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+.autoq-play-area > .autoq-staged-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* Discard pile — a narrow column just wide enough for one card. Cards stack
+   downward with negative vertical margin; hover slides a buried card to the
+   right so its letter is readable. */
+.autoq-discard-row {
+  flex: 0 0 66px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 22px 8px 8px 8px;
+  min-height: 90px;
+  margin-bottom: 0;
+  border-color: var(--aq-loss);
+  overflow: visible;
+}
+
+.autoq-discard-row .autoq-card {
+  width: 44px;
+  height: 60px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+.autoq-discard-row .autoq-card + .autoq-card {
+  margin-top: -42px; /* ~18px of each buried card peeks out above the next */
+}
+.autoq-discard-row .autoq-card-letter { font-size: 1.35rem; }
+.autoq-discard-row .autoq-card-value { font-size: 0.58rem; top: 3px; left: 4px; }
+.autoq-discard-row .autoq-card:hover {
+  transform: translateX(8px) scale(1.06);
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.autoq-discard-row .autoq-zone-label {
+  top: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+}
+
+.autoq-drop-over {
+  background: var(--aq-card-select-bg, rgba(37, 99, 235, 0.10));
+  border-style: solid;
+}
+.autoq-discard-row.autoq-drop-over {
+  background: var(--aq-card-discard-bg, rgba(160, 48, 48, 0.12));
+}
+
+.autoq-zone-empty {
+  color: var(--aq-text-dim);
+  font-size: 0.85rem;
+  margin: 0 auto;
+  font-style: italic;
+  pointer-events: none;
+}
+
+.autoq-zone-label {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--aq-loss);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Make cards feel grabbable and prevent the browser from hijacking touch
+   gestures (scroll, text-select) while the player is dragging a card. */
+.autoq-card {
+  touch-action: none;
+}
+
+.autoq-card-dragging {
+  cursor: grabbing;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .autoq-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: var(--aq-bg-card);
   border: 1px solid var(--aq-border);
-  border-radius: var(--aq-radius-sm);
-  padding: 10px 14px 6px;
-  min-width: 48px;
-  transition: border-color 0.15s, opacity 0.15s;
+  border-radius: 8px;
+  width: 56px;
+  height: 78px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
-.autoq-card:hover { border-color: var(--aq-accent); }
+.autoq-card:hover {
+  border-color: var(--aq-accent);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.02);
+}
 
-.autoq-card-used { opacity: 0.3; border-color: transparent; }
-.autoq-card-used:hover { border-color: transparent; }
+/* Staged card — per-word color applied via the `--word-color` / `--word-color-bg`
+   custom properties set inline on each card. Falls back to the blue select
+   tokens when no word color is set. The tint is layered over the opaque card
+   base so overlapping cards don't bleed through each other. */
+.autoq-card-used {
+  border-color: var(--word-color, var(--aq-card-select, #2563eb));
+  background:
+    linear-gradient(var(--word-color-bg, var(--aq-card-select-bg, rgba(37, 99, 235, 0.10))),
+                    var(--word-color-bg, var(--aq-card-select-bg, rgba(37, 99, 235, 0.10)))),
+    var(--aq-bg-card);
+  box-shadow: 0 0 0 1px var(--word-color, var(--aq-card-select, #2563eb)) inset;
+}
+.autoq-card-used:hover { border-color: var(--word-color, var(--aq-card-select, #2563eb)); }
+
+.autoq-card-discarded {
+  opacity: 0.45;
+  border-color: var(--aq-loss);
+  background: var(--aq-card-discard-bg, rgba(160, 48, 48, 0.08));
+}
+.autoq-card-discarded .autoq-card-letter { text-decoration: line-through; }
+.autoq-card-discarded:hover { border-color: var(--aq-loss); }
 
 .autoq-card-letter {
   font-family: 'Anybody', sans-serif;
   font-weight: 800;
-  font-size: 1.3rem;
+  font-size: 1.75rem;
   line-height: 1;
   text-transform: lowercase;
   color: var(--aq-text);
 }
 
 .autoq-card-value {
-  font-size: 0.7rem;
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
   color: var(--aq-text-dim);
-  margin-top: 4px;
+}
+
+.autoq-card-word-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--word-color, var(--aq-card-select, #2563eb));
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* ── Word input ────────────────────────────────────────── */
@@ -265,6 +565,13 @@
 
 .autoq-input::placeholder { color: var(--aq-text-dim); font-weight: 400; }
 .autoq-input:focus { outline: none; border-color: var(--aq-accent); }
+
+.autoq-input-invalid,
+.autoq-input-invalid:focus {
+  border-color: var(--aq-loss);
+  background: var(--aq-card-discard-bg);
+  color: var(--aq-loss);
+}
 
 .autoq-error {
   color: var(--aq-loss);
@@ -300,6 +607,14 @@
   font-size: 0.85rem;
   margin-top: 12px;
   text-align: left;
+}
+
+.autoq-discards-summary {
+  color: var(--aq-text-dim);
+  font-size: 0.8rem;
+  margin-top: 6px;
+  text-align: left;
+  letter-spacing: 0.02em;
 }
 
 /* ── Tables ────────────────────────────────────────────── */
@@ -350,6 +665,124 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
+}
+
+/* Per-hand standings grid — tighter columns so a half-width panel fits
+   8 hands + player + total. */
+.autoq-standings-grid {
+  table-layout: auto;
+  font-size: 0.82rem;
+}
+.autoq-standings-grid th,
+.autoq-standings-grid td {
+  padding: 6px 4px;
+  text-align: center;
+}
+.autoq-standings-grid .autoq-standings-name-col {
+  text-align: left;
+}
+.autoq-standings-grid tr > td:nth-child(2),
+.autoq-standings-grid tr > th:nth-child(2) {
+  text-align: left;
+  white-space: nowrap;
+}
+.autoq-standings-hand-col,
+.autoq-standings-total-col {
+  color: var(--aq-text-muted);
+  font-weight: 600;
+}
+.autoq-standings-hand-col.is-clickable,
+.autoq-standings-hand-cell.is-clickable {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.autoq-standings-hand-col.is-clickable:hover,
+.autoq-standings-hand-cell.is-clickable:hover {
+  background: var(--aq-accent-glow);
+}
+.autoq-cell-star {
+  color: var(--aq-star);
+  margin-left: 2px;
+  font-size: 0.85em;
+}
+.autoq-cell-empty {
+  color: var(--aq-text-dim);
+  opacity: 0.6;
+}
+
+/* Hand-result popup — slides in from the top of the standings column. */
+.autoq-hand-popup {
+  position: absolute;
+  inset: 0;
+  background: var(--aq-bg-card);
+  border: 2px solid var(--aq-accent);
+  border-radius: var(--aq-radius);
+  padding: 18px 22px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  z-index: 10;
+  animation: aq-hand-popup-in 0.26s cubic-bezier(0.22, 0.9, 0.32, 1.2);
+  overflow-y: auto;
+}
+
+@keyframes aq-hand-popup-in {
+  from { transform: translateY(-28px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.autoq-hand-popup-title {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--aq-accent);
+  margin: 0 0 12px;
+  padding-right: 32px;
+}
+
+.autoq-hand-popup-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--aq-text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color 0.12s, background 0.12s;
+}
+.autoq-hand-popup-close:hover {
+  color: var(--aq-text);
+  background: var(--aq-bg-surface);
+}
+
+.autoq-hand-popup-empty {
+  color: var(--aq-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* 8s auto-close countdown — shrinks left-to-right from full width to zero,
+   sitting flush against the popup's top border so it reads as a timer.
+   Only rendered when the popup auto-opened; manual opens omit the bar. */
+.autoq-hand-popup-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--aq-accent);
+  transform-origin: left center;
+  animation: aq-hand-popup-countdown 8s linear forwards;
+  border-top-left-radius: var(--aq-radius);
+  border-top-right-radius: var(--aq-radius);
+}
+
+@keyframes aq-hand-popup-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 /* ── Hand history ──────────────────────────────────────── */
@@ -417,12 +850,34 @@
   }
 
   .autoq-card {
-    min-width: 40px;
-    padding: 8px 10px 4px;
+    width: 46px;
+    height: 64px;
+    border-radius: 7px;
   }
 
+  .autoq-discard-row {
+    flex: 0 0 52px;
+    padding: 20px 4px 6px 4px;
+    min-height: 80px;
+  }
+  .autoq-discard-row .autoq-card {
+    width: 36px;
+    height: 50px;
+  }
+  .autoq-discard-row .autoq-card + .autoq-card {
+    margin-top: -35px;
+    margin-left: 0;
+  }
+  .autoq-discard-row .autoq-card-letter { font-size: 1.05rem; }
+
   .autoq-card-letter {
-    font-size: 1.1rem;
+    font-size: 1.45rem;
+  }
+
+  .autoq-card-value {
+    font-size: 0.6rem;
+    top: 3px;
+    left: 5px;
   }
 
   .autoq-result-panel,
