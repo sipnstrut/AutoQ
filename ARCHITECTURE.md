@@ -169,7 +169,16 @@ Options:
 
 ### Updating Bot Data
 
-To refresh `bot-scores.json` with newer game data, export from the QBIM scores API (CORS-open, read-only, no auth required):
+`src/bot-scores.json` is **kept current automatically** by a nightly pipeline in the `sns-web` repo (the sipnstrut.com codebase). The annotated, slimmed file gets mirrored into this repo by a GitHub Actions workflow (`sync-bot-scores-to-autoq.yml` on sns-web; commits land here as `chore: sync bot-scores.json from sns-web`).
+
+The pipeline has two upstream feeds — both append to the same file with the same dedup key (`hand|breakdown|words`):
+
+1. **QBIM scores API** (`/stats/scores` — 7-player multiplayer hands from the work env). `scripts/sync-qbim-snapshot.mjs` snapshots the full row set to `data/qbim-snapshot.json` (in-repo audit trail) and appends newly-playable rows.
+2. **sipnstrut.com BOTSEED** (solo player hands written by `submit-score` to DynamoDB). `scripts/ingest-user-hands.mjs` queries unprocessed BOTSEED rows and appends them.
+
+After both feeds run, `scripts/annotate-bot-scores.mjs` validates new entries against Merriam-Webster (Dictionary + medical_v2) and sets `seed_valid: true | false`. The engine filters `seed_valid: false` at runtime (`selectBotPlays` — see Bot Behavior below).
+
+**Manual refresh** isn't normally needed. If you do want to rebuild from scratch (e.g., for a non-sipnstrut host), the QBIM endpoint is CORS-open and no-auth:
 
 ```bash
 curl -s "https://jqoyoafk29.execute-api.us-east-1.amazonaws.com/prod/stats/scores" | node -e "
@@ -184,9 +193,9 @@ curl -s "https://jqoyoafk29.execute-api.us-east-1.amazonaws.com/prod/stats/score
 " > bot-scores.json
 ```
 
-Or just add entries manually — the format per entry is:
+The format per entry (post-annotation) is:
 ```json
-{ "hand": 5, "words": "quick fox", "raw_score": 42, "word_count": 2, "longest_word_letters": 5, "breakdown": "QU-I-C-K  F-O-X" }
+{ "hand": 5, "words": "quick fox", "raw_score": 42, "word_count": 2, "longest_word_letters": 5, "breakdown": "QU-I-C-K  F-O-X", "seed_valid": true }
 ```
 
 ## Cost

@@ -41,15 +41,17 @@ There is no test suite and no linter configured — don't invent one. Don't add 
 - **`validateWords`** — `async (input) => { valid, invalid }`. Wire this only when a dictionary backend is actually being introduced; otherwise all composable words are accepted.
 - **`onStateChange`** — `(game) => void`. Fires on start, mulligan, submit, finish, and reset; receives the current game object, or `null` when no game is active. Used by the sipnstrut gameroom host to mirror game state into its own UI.
 
-## Live bot-score source
+## Bot-score source
 
-Bot hands can be pulled live from the QBIM scores API (CORS-open, read-only, no auth):
+`src/bot-scores.json` is **not a static snapshot anymore** — it grows nightly. The sipnstrut.com codebase (sns-web) runs a daily workflow (`annotate-bot-scores.yml`) that pulls from two upstreams (QBIM API + sipnstrut.com BOTSEED), validates new entries against Merriam-Webster, and commits the updated file. A second workflow (`sync-bot-scores-to-autoq.yml`, deploy-key auth) then mirrors it into this repo as `chore: sync bot-scores.json from sns-web`. Next `npm run build` bundles the new entries automatically. Full pipeline diagram in `ARCHITECTURE.md`'s "Updating Bot Data" section.
+
+For a host that wants higher freshness than the nightly bundle (or for non-sipnstrut hosts that don't get the mirrored file), the QBIM endpoint is CORS-open, read-only, no auth:
 
 ```
 GET https://jqoyoafk29.execute-api.us-east-1.amazonaws.com/prod/stats/scores
 ```
 
-Each row has `hand`, `raw_score`, `words`, `breakdown`, `word_count`, `longest_word_letters` — exactly what the engine's bot selector consumes. A host that wants live data fetches the array once at mount, caches it (full-table scan), and passes it as `<AutoQ scores={data} />`. The bundled `src/bot-scores.json` is a 304-row snapshot of the same source; ARCHITECTURE.md's "Updating Bot Data" section documents the refresh recipe.
+Fetch once at mount, cache client-side (full-table scan), pass as `<AutoQ scores={data} />`. Each row has `hand`, `raw_score`, `words`, `breakdown`, `word_count`, `longest_word_letters` — exactly what the engine's bot selector consumes. Note: most rows are unplayed assignments; filter on `words && breakdown` before treating a row as a seed.
 
 ## .env.local
 
