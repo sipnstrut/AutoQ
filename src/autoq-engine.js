@@ -7,15 +7,24 @@
 
 // ── Card Data ──────────────────────────────────────────
 
+// Power deck values. Replaced the original Quiddler table in full: this is
+// not Quiddler plus two cards, it is a data-tuned variant that also re-prices
+// ten existing cards. G/J/N/P/R/W/X/Z came down, U and Y went up, IN and ER
+// dropped from 7 to 6, and CH/CK are new.
+//
+// Bot scores are recomputed against this table from their recorded card
+// breakdown (see scoreBreakdown) rather than trusted as stored. Without that,
+// bots would keep their Quiddler-era totals while humans scored under the
+// cheaper Power table — a silent advantage, since most re-prices went down.
 export const CARD_VALUES = {
-  A: 2, B: 8, C: 8, D: 5, E: 2, F: 6, G: 6, H: 7,
-  I: 2, J: 13, K: 8, L: 3, M: 5, N: 5, O: 2, P: 6,
-  Q: 15, R: 5, S: 3, T: 3, U: 4, V: 11, W: 10, X: 12,
-  Y: 4, Z: 14,
-  ER: 7, CL: 10, IN: 7, TH: 9, QU: 9,
+  A: 2, B: 8, C: 8, D: 5, E: 2, F: 6, G: 5, H: 7,
+  I: 2, J: 12, K: 8, L: 3, M: 5, N: 4, O: 2, P: 5,
+  Q: 15, R: 4, S: 3, T: 3, U: 5, V: 11, W: 9, X: 10,
+  Y: 5, Z: 13,
+  QU: 9, IN: 6, ER: 6, CL: 10, TH: 9, CH: 11, CK: 12,
 };
 
-const DIGRAPHS = ["QU", "IN", "ER", "TH", "CL"];
+const DIGRAPHS = ["QU", "IN", "ER", "TH", "CL", "CH", "CK"];
 
 // Normalize user-typed input: any run of non-letter characters collapses to a
 // single space, then trim. Digits, punctuation, and symbols are stripped;
@@ -25,19 +34,54 @@ function cleanInput(input) {
 }
 
 // Word-game rule: every submitted word must consume at least this many cards.
-// Digraph cards (QU, TH, CL, IN, ER) count as one card each, so "qu" alone is
-// rejected even though it fits in two card slots when split as Q+U.
+// Digraph cards (QU, TH, CL, IN, ER, CH, CK) count as one card each, so "qu"
+// alone is rejected even though it fits in two card slots when split as Q+U.
 const MIN_CARDS_PER_WORD = 2;
 
+// Power deck composition: 126 cards. Quiddler's 118 plus one each of A, B, E
+// and P, and two each of the new CH and CK digraphs.
 const CARD_FREQUENCIES = {
-  A: 10, B: 2, C: 2, D: 4, E: 12, F: 2, G: 4, H: 2, I: 8, J: 2,
-  K: 2, L: 4, M: 2, N: 6, O: 8, P: 2, Q: 2, R: 6, S: 4, T: 6,
-  U: 6, V: 2, W: 2, X: 2, Y: 4, Z: 2, QU: 2, IN: 2, ER: 2, CL: 2, TH: 2,
+  A: 11, B: 3, C: 2, D: 4, E: 13, F: 2, G: 4, H: 2, I: 8, J: 2,
+  K: 2, L: 4, M: 2, N: 6, O: 8, P: 3, Q: 2, R: 6, S: 4, T: 6,
+  U: 6, V: 2, W: 2, X: 2, Y: 4, Z: 2,
+  QU: 2, IN: 2, ER: 2, CL: 2, TH: 2, CH: 2, CK: 2,
 };
 
-const QUIDDLER_DECK = [];
+const POWER_DECK = [];
 for (const [card, count] of Object.entries(CARD_FREQUENCIES)) {
-  for (let i = 0; i < count; i++) QUIDDLER_DECK.push(card);
+  for (let i = 0; i < count; i++) POWER_DECK.push(card);
+}
+
+/**
+ * Rescore a historical bot play against the current CARD_VALUES.
+ *
+ * bot-scores.json stores a `raw_score` computed under the Quiddler table, plus
+ * a `breakdown` naming the exact cards used ("A-X  I-F  S-E-L-L-IN-G": cards
+ * hyphen-separated within a word, words separated by whitespace). Scoring from
+ * the breakdown keeps bots and humans on one table, so a value change never
+ * silently tilts the game.
+ *
+ * Returns null when the breakdown is absent or names a card this deck does not
+ * define, so callers can fall back to the stored score rather than invent one.
+ */
+export function scoreBreakdown(breakdown) {
+  if (typeof breakdown !== "string" || !breakdown.trim()) return null;
+  let total = 0;
+  for (const word of breakdown.trim().split(/\s+/)) {
+    for (const card of word.split("-")) {
+      if (!card) continue;
+      const value = CARD_VALUES[card];
+      if (value === undefined) return null;
+      total += value;
+    }
+  }
+  return total;
+}
+
+/** Stored score, rescored against the live table when the breakdown allows. */
+function botScore(entry) {
+  const rescored = scoreBreakdown(entry && entry.breakdown);
+  return rescored === null ? (entry && entry.raw_score) || 0 : rescored;
 }
 
 export const HANDS = [3, 4, 5, 6, 7, 8, 9, 10];
@@ -60,7 +104,7 @@ function shuffleDeck(deck) {
 }
 
 function dealForHand(playerCount, handSize) {
-  const deck = shuffleDeck([...QUIDDLER_DECK]);
+  const deck = shuffleDeck([...POWER_DECK]);
   const hands = [];
   for (let p = 0; p < playerCount; p++) hands.push(deck.splice(0, handSize));
   return hands;
@@ -396,7 +440,7 @@ function selectBotPlays(botCount, hand, remainingPool, allScores) {
       if (tryConsume(usedCards, remainingPool)) {
         plays.push({
           words: wordsKey,
-          raw_score: s.raw_score || 0,
+          raw_score: botScore(s),
           word_count: s.word_count || 1,
           longest_word_letters: s.longest_word_letters || 0,
           breakdown: s.breakdown || "",
@@ -502,7 +546,7 @@ export function createGame(opponentCount, historicalScores) {
     dealtHands[hand] = dealt[0]; // human's cards
 
     if (opponentCount > 0) {
-      const remainingPool = buildPool(QUIDDLER_DECK);
+      const remainingPool = buildPool(POWER_DECK);
       for (const c of dealt[0]) remainingPool.set(c, (remainingPool.get(c) || 0) - 1);
       botPlays[hand] = selectBotPlays(opponentCount, hand, remainingPool, usableScores);
     } else {
@@ -526,12 +570,12 @@ export function createGame(opponentCount, historicalScores) {
   };
 }
 
-// Build the redeal pool for a mulligan: the 118-card deck minus cards already
+// Build the redeal pool for a mulligan: the 126-card deck minus cards already
 // out of circulation for the current hand — the player's current (about-to-be-
 // discarded) hand, previous mulligan discards for this hand, and all cards
 // the bots played for this hand.
 function mulliganPool(game) {
-  const pool = buildPool(QUIDDLER_DECK);
+  const pool = buildPool(POWER_DECK);
   const hand = game.currentHand;
   if (hand == null) return pool;
   const toRemove = [

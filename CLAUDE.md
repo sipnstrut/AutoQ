@@ -29,7 +29,8 @@ There is no test suite and no linter configured — don't invent one. Don't add 
 
 - **Engine is framework-free.** `src/autoq-engine.js` has zero imports and exposes a functional API. Do not import React, DOM APIs, or anything else into it — this is what allows the game to be reused in non-React hosts.
 - **Game state is immutable from the caller's perspective.** Every engine call (`createGame`, `submitHand`, `takeMulligan`, …) returns a fresh game object; `AutoQ.jsx` replaces it wholesale in `useState`. Mutating the returned object in place will break React re-renders and the `onStateChange` subscription. Don't convert to a class or external store either.
-- **Digraphs (QU, TH, CL, IN, ER) are single cards** with their own point values. `submitHand` auto-selects the highest-scoring breakdown when a word can be formed multiple ways — don't "simplify" this.
+- **Digraphs (QU, TH, CL, IN, ER, CH, CK) are single cards** with their own point values. `submitHand` auto-selects the highest-scoring breakdown when a word can be formed multiple ways — don't "simplify" this.
+- **The deck is the 126-card Power deck.** It replaced Quiddler's 118 in full: CH/CK added, one each of A/B/E/P, and ten cards re-priced. The card data must stay identical to the embedded copy in sns-web — that block is shared even though the rest of the component legitimately differs.
 - **Bots replay real historical hands** from `src/bot-scores.json` against a shared depleting deck, with synthetic zero-score entries injected to prevent high-skew. If you touch bot selection, re-read the "Bot Behavior" section.
 - **Stars only apply with 3+ total players and no ties** (longest word + most words, +10 each). See `calculateStars`.
 

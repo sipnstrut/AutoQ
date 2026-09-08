@@ -52,18 +52,30 @@ Pure JavaScript, no framework dependency. Can be used with React, Vue, vanilla J
 
 - Each card has a point value (A=2, Z=14, QU=9, etc.)
 - Words are formed from dealt cards; total score = sum of card values used
-- Digraphs (QU, TH, CL, IN, ER) are single cards worth their own value
-  - QU=9 vs Q+U=19 — different scores, engine auto-picks highest
-  - IN=7 vs I+N=7 — same score, engine auto-picks to fit hand size
+- Digraphs (QU, TH, CL, IN, ER, CH, CK) are single cards worth their own value
+  - QU=9 vs Q+U=20 — different scores, engine auto-picks highest
+  - IN=6 vs I+N=6 — same score, engine auto-picks to fit hand size
+  - CH=11 vs C+H=15 and CK=12 vs C+K=16 — the split scores higher, so the
+    digraph reading wins only when it frees a card slot the hand needs
 - Stars: With 3+ total players, one star for sole longest word (by letter count), one for sole most words. Each star = +10 bonus points.
 - Effective score = raw + (stars * 10)
 
 ### Card Deck
 
-118 cards total. Frequencies match the physical Quiddler deck:
-- Common: A(10), E(12), I(8), O(8), etc.
+**126 cards — the Power deck.** This replaced the 118-card Quiddler deck
+outright; the game is Quiddler-descended but no longer Quiddler-equivalent.
+- Common: A(11), E(13), I(8), O(8), etc.
 - Rare: J(2), Q(2), X(2), Z(2)
-- Digraphs: QU(2), IN(2), ER(2), TH(2), CL(2)
+- Digraphs: QU(2), IN(2), ER(2), TH(2), CL(2), CH(2), CK(2)
+
+Power differs from Quiddler by more than the two new digraphs: it adds one
+each of A, B, E and P, and re-prices ten cards (G/J/N/P/R/W/X/Z down, U and
+Y up, IN and ER from 7 to 6).
+
+Because bot plays were recorded under Quiddler values, the engine recomputes
+their scores from the stored card `breakdown` (`scoreBreakdown`) rather than
+trusting `raw_score`. Skipping that would leave bots on their old, higher
+totals while humans scored under the cheaper Power table.
 
 Deck is shuffled fresh for each hand (not across hands).
 
