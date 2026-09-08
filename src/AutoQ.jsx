@@ -25,10 +25,6 @@ import botScoresData from "./bot-scores.json";
 
 // ── Staged-word helpers (pure) ─────────────────────────
 const removeFromStagedWords = (words, i) => words.map((w) => w.filter((x) => x !== i));
-const appendToLastWord = (words, i) => {
-  const last = words.length - 1;
-  return words.map((w, j) => (j === last ? [...w, i] : w));
-};
 const insertBeforeCard = (words, i, beforeCardIndex) => (
   words.map((w) => {
     const at = w.indexOf(beforeCardIndex);
@@ -472,7 +468,7 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
       target: e.currentTarget,
       activated: false,
     };
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
   }, []);
 
   const onCardPointerMove = useCallback((e) => {
@@ -517,7 +513,7 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
     const start = pointerStartRef.current;
     pointerStartRef.current = null;
     if (!start || start.pointerId !== e.pointerId) return;
-    try { start.target.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    try { start.target.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     if (start.activated && drag) {
       applyDrop(drag.index, drag.zone, drag.beforeCardIndex, drag.afterCardIndex, drag.hoveredWordIndex);
     } else {
