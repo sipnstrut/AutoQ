@@ -19,7 +19,7 @@ There is no test suite and no linter configured — don't invent one. Don't add 
 
 ## Environment
 
-- **Node is not on PATH.** Portable install at `C:\Users\Joe\tools\node-v20.18.1-win-x64\`. Before running `npm` / `node`, prepend it: `export PATH="/c/Users/Joe/tools/node-v20.18.1-win-x64:$PATH"`.
+- **Node is on PATH at v24.15.0** (npm 11.12.1) from `C:\Program Files\nodejs\`, which is on the Machine PATH — just run `npm` / `node`. A portable v20.18.1 (npm 10.8.2) also exists at `C:\Users\Joe\tools\node-v20.18.1-win-x64\` but is **not** on PATH and should not be prepended.
 - **Shell is bash on Windows.** Use Unix syntax (`/dev/null`, forward slashes).
 - This directory is its own git repo (independent from the parent `source/repos` workspace).
 
