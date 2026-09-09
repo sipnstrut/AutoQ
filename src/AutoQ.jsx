@@ -564,7 +564,7 @@ export default function AutoQ({ scores, validateWords, onStateChange } = {}) {
       <section className="autoq-section" id="autoq">
         <h2 className="autoq-title">AutoQ</h2>
         <div className="autoq-start-panel">
-          <p className="autoq-description">Solo Quiddler — play 8 hands (3-10 cards) against bot opponents.</p>
+          <p className="autoq-description">Power Words, solo — play 8 hands (3-10 cards) against bot opponents.</p>
           <div className="autoq-start-controls">
             <label className="autoq-label">
               Opponents
